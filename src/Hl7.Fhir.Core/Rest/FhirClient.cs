@@ -15,6 +15,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
 
 
@@ -190,14 +191,14 @@ namespace Hl7.Fhir.Rest
         /// <summary>
         /// Returns the HttpWebRequest as it was last constructed to execute a call on the FhirClient
         /// </summary>
-        public HttpWebRequest LastRequest { get { return _requester.LastRequest; } }
+        public HttpRequestMessage LastRequest { get { return _requester.LastRequest; } }
 
         /// <summary>
         /// Returns the HttpWebResponse as it was last received during a call on the FhirClient
         /// </summary>
         /// <remarks>Note that the FhirClient will have read the body data from the HttpWebResponse, so this is
         /// no longer available. Use LastBody, LastBodyAsText and LastBodyAsResource to get access to the received body (if any)</remarks>
-        public HttpWebResponse LastResponse { get { return _requester.LastResponse; } }
+        public HttpResponseMessage LastResponse { get { return _requester.LastResponse; } }
 
         /// <summary>
         /// The default endpoint for use with operations that use discrete id/version parameters
@@ -1024,22 +1025,22 @@ namespace Hl7.Fhir.Rest
         public event EventHandler<AfterResponseEventArgs> OnAfterResponse;
 
         /// <summary>
-        /// Inspect or modify the HttpWebRequest just before the FhirClient issues a call to the server
+        /// Inspect or modify the <see cref="HttpRequestMessage"/> just before the FhirClient issues a call to the server
         /// </summary>
         /// <param name="rawRequest">The request as it is about to be sent to the server</param>
         /// <param name="body">The data in the body of the request as it is about to be sent to the server</param>
-        protected virtual void BeforeRequest(HttpWebRequest rawRequest, byte[] body) 
+        protected virtual void BeforeRequest(HttpRequestMessage rawRequest, byte[] body) 
         {
             // Default implementation: call event
             OnBeforeRequest?.Invoke(this, new BeforeRequestEventArgs(rawRequest, body));
         }
 
         /// <summary>
-        /// Inspect the HttpWebResponse as it came back from the server
+        /// Inspect the <see cref="HttpResponseMessage"/> as it came back from the server
         /// </summary>
-        /// <remarks>You cannot read the body from the HttpWebResponse, since it has
+        /// <remarks>You cannot read the body from the HttpResponseMessage, since it has
         /// already been read by the framework. Use the body parameter instead.</remarks>
-        protected virtual void AfterResponse(HttpWebResponse webResponse, byte[] body)
+        protected virtual void AfterResponse(HttpResponseMessage webResponse, byte[] body)
         {
             // Default implementation: call event
             OnAfterResponse?.Invoke(this, new AfterResponseEventArgs(webResponse, body));
@@ -1137,30 +1138,52 @@ namespace Hl7.Fhir.Rest
                 throw Error.NotSupported("This client support FHIR version {0}, but the server uses version {1}".FormatWith(ModelInfo.Version, conf.FhirVersion));
             }
         }
-    }
+
+      #region IDisposable Support
+      private bool disposedValue = false; // To detect redundant calls
+
+      protected virtual void Dispose(bool disposing)
+      {
+         if (!disposedValue)
+         {
+            if (disposing)
+            {
+               this._requester.Dispose();
+            }
+
+            disposedValue = true;
+         }
+      }
+
+      public void Dispose()
+      {
+         Dispose(true);
+      }
+      #endregion
+   }
 
 
     public class BeforeRequestEventArgs : EventArgs
     {
-        public BeforeRequestEventArgs(HttpWebRequest rawRequest, byte[] body)
+        public BeforeRequestEventArgs(HttpRequestMessage rawRequest, byte[] body)
         {
             this.RawRequest = rawRequest;
             this.Body = body;
         }
 
-        public HttpWebRequest RawRequest { get; internal set; }
+        public HttpRequestMessage RawRequest { get; internal set; }
         public byte[] Body { get; internal set; }
     }
 
     public class AfterResponseEventArgs : EventArgs
     {
-        public AfterResponseEventArgs(HttpWebResponse webResponse, byte[] body)
+        public AfterResponseEventArgs(HttpResponseMessage webResponse, byte[] body)
         {
             this.RawResponse = webResponse;
             this.Body = body;
         }
 
-        public HttpWebResponse RawResponse { get; internal set; }
+        public HttpResponseMessage RawResponse { get; internal set; }
         public byte[] Body { get; internal set; }
     }
 }
